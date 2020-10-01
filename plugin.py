@@ -1,7 +1,8 @@
 #
 #   SNMPreader Plugin
 #
-#   Author: ycahome, 2017
+#   Author: ycahome,    2017 
+#           bramvreugd, 2020
 #   https://www.domoticz.com/forum
 #
 #
@@ -10,11 +11,12 @@
 #                            : Ficed to work with python 3
 #                            : Added interval attribute
 #                            : Minor Ther fixes
+#          1.2.0             : Now support Speed calculation and multiple OID's per instance
 #
 #
 ##
 """
-<plugin key="SNMPreader2" name="SNMP Reader2" author="ycahome" version="1.1.1" wikilink="m" externallink="https://www.domoticz.com/forum/viewtopic.php?f=65">
+<plugin key="SNMPreader2" name="SNMP Reader2" author="ycahome bramvreugd" version="1.2.0" wikilink="m" externallink="https://www.domoticz.com/forum/viewtopic.php?f=65">
     <description>
     * Use PRefix OID will be before all OID's<br/>
     * In the OIDlist use the form   OID1;Typename1|OID2;Typename2...<br/>
