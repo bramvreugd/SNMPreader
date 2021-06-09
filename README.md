@@ -1,4 +1,4 @@
-# SNMPReader
+# Domoticz SNMP Reader for multiple devices
 With this plugin you can bring several SNMP OID per ip address each time on your Domoticz server.
 
 Debian Requirements:
