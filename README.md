@@ -27,4 +27,8 @@ Domoticz Installation instructions:
        .1.3.6.1.2.1.2.2.1.10.4     inOctets on WAN1        
        .1.3.6.1.2.1.2.2.1.16.4     outOctets on WAN1
        
+    With .1.3.6.1.2.1.4.20.1.1#1 you can get the first element of the ipAddrTable (WAN) table. of course you can use #2 for the second in case of dual WAN modems  
+    Normally you shouled use .1.3.6.1.2.1.4.20.1.1.192.168.1.1
+    But if you don't know your IP you don't have the OID.
+    
 Hope you like it!!
