@@ -11,12 +11,15 @@
 #                            : Ficed to work with python 3
 #                            : Added interval attribute
 #                            : Minor Ther fixes
-#          1.2.0             : Now support Speed calculation and multiple OID's per instance
-#
+#          1.2.0             : Now support Speed calculation and multiple OID's per instance 
+#          1.3.0             : Bug fix for types other then speed data type
+#                              Possibility to get value from table ipAddrTable with #n. 
+#                              For example #1 is the first element of the table. Full OID of example: .1.3.6.1.2.1.4.20.1.1#1
+#                              With this it is possible to retrieve the ip your modem/router got from your isp     
 #
 ##
 """
-<plugin key="SNMPreader2" name="SNMP Reader2" author="ycahome bramvreugd" version="1.2.0" wikilink="m" externallink="https://www.domoticz.com/forum/viewtopic.php?f=65">
+<plugin key="SNMPreader2" name="SNMP Reader2" author="ycahome bramvreugd" version="1.3.0" wikilink="m" externallink="https://www.domoticz.com/forum/viewtopic.php?f=65">
     <description>
     * Use PRefix OID will be before all OID's<br/>
     * In the OIDlist use the form   OID1;Typename1|OID2;Typename2...<br/>
@@ -44,10 +47,10 @@ import sys
 sys.path.append('/usr/lib/python3/dist-packages/')
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 
-
 import json
 import urllib.request
 import urllib.error
+from pyasn1.error import PyAsn1Error
 
 from math import radians, cos, sin, asin, sqrt
 from datetime import datetime, timedelta
@@ -77,10 +80,11 @@ def onStart():
     ServerIP = str(Parameters["Address"])
     snmpOID = str(Parameters["Mode1"])
     snmpCommunity = Parameters["Mode2"]
-    try:
-       snmpDataValue = str(getSNMPvalue(ServerIP,snmpOID,snmpCommunity))
-    except:
-      snmpDataValue= None
+    #try:
+    #   snmpDataValue = str(getSNMPvalue(ServerIP,snmpOID,snmpCommunity))
+    #except:
+    #  snmpDataValue= None
+    onHeartbeat()
 
     Domoticz.Heartbeat(interval)
     Domoticz.Log("started with "+str(len(Devices))+ " devices")
@@ -103,10 +107,18 @@ def onHeartbeat():
 def GetSNMPDevice(Unit,ServerIP,snmpCommunity,snmpOID,TypeName):
     global glastSNMPValue
     # Get new information and update the devices
-    try:
-        snmpDataValue = str(getSNMPvalue(ServerIP,snmpOID,snmpCommunity))
-    except Exception as err:
-       snmpDataValue = none
+    OIDpart = snmpOID.split('#')
+    if(len(OIDpart)==1):
+        try:
+            snmpDataValue = str(getSNMPvalue(ServerIP,snmpOID,snmpCommunity))
+        except Exception as err:
+            snmpDataValue = none
+    else:
+        #try:
+        Domoticz.Log("OID Item"+OIDpart[0]+" index:"+OIDpart[1])
+        snmpDataValue = str(getSNMPvalueIndex(ServerIP,OIDpart[0],snmpCommunity,int(OIDpart[1])))
+        #except Exception as err:
+        #    snmpDataValue = none
     
     if(TypeName=="Speed" and snmpDataValue!=None):
         if(glastSNMPValue[Unit]!=None):
@@ -167,7 +179,7 @@ def createDevices():
             if( unitNum not in Devices):
                 params=item.split(';')
                 if(params[1]!="Speed"):
-                    Domoticz.Device(Name=gdeviceSuffix, Unit=unitNum, TypeName=Params[1]).Create()
+                    Domoticz.Device(Name=gdeviceSuffix, Unit=unitNum, TypeName=params[1]).Create()
                 else:
                     Domoticz.Device(Name=gdeviceSuffix, Unit=unitNum, TypeName="Custom", Options={"Custom": "1;Mbps"}).Create()
         Domoticz.Log("Devices created."+ str(len(Devices)))
@@ -183,7 +195,8 @@ def getSNMPvalue(ServerIP,snmpOID,snmpCommunity):
     Domoticz.Debug("TTData Loaded." + str(TTData))
 
     errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(genData,TTData,snmpOID)
-    Domoticz.Debug("DATA Loaded." + str(varBinds))
+    Domoticz.Log("DATA Loaded." + str(varBinds))
+    #Domoticz.Log("TTData Loaded." + str(TTData))
 
     # Check for errors and print out results
     if errorIndication:
@@ -196,6 +209,42 @@ def getSNMPvalue(ServerIP,snmpOID,snmpCommunity):
                 Domoticz.Debug('%s = %s' % (name.prettyPrint(), val.prettyPrint()))
 
                 return val.prettyPrint()
+
+# ipAddrTable are not numerical indexed. With this workarround you can access it numerical 
+# normally you use .1.3.6.1.2.1.4.20.1.1.192.168.1.1
+# but if you don't know your IP you don't have the OID.
+# With this you can use .1.3.6.1.2.1.4.20.1.1 with an index. 
+def getSNMPvalueIndex(ServerIP,snmpOID,snmpCommunity,index):
+    cmdGen = cmdgen.CommandGenerator()
+
+    genData = cmdgen.CommunityData(str(snmpCommunity))
+    Domoticz.Log("genData Loaded." + str(genData))
+
+    TTData = cmdgen.UdpTransportTarget((str(ServerIP), 161), retries=2)
+    Domoticz.Log("TTData Loaded." + str(TTData))
+    
+    #try: 
+    errorIndication, errorStatus, errorIndex, varBinds = cmdGen.nextCmd(genData,TTData,snmpOID)
+    #except PyAsn1Error as err:
+    #   Domoticz.Log("Error" + str(err))
+    if(len(varBinds)<index):
+       Domoticz.Log("Element index larger then elements in table.")
+       return ""
+    else:
+       varBinds2=varBinds[int(index)-1]
+
+    # Check for errors and print out results
+    if errorIndication:
+        Domoticz.Error(str(errorIndication))
+    else:
+        if errorStatus:
+            Domoticz.Error('%s at %s' % (errorStatus.prettyPrint(),errorIndex and varBinds2[int(errorIndex)-1] or '?'))
+        else:
+            for name, val in varBinds2:
+                Domoticz.Debug('%s = %s' % (name.prettyPrint(), val.prettyPrint()))
+
+                return val.prettyPrint()
+
 
 #
 # Parse an int and return None if no int is given
